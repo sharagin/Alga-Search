@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alga-Search | OSINT инструмент</title>
+    <style>
+        :root {
+            --primary: #0a192f;
+            --secondary: #172a45;
+            --accent: #64ffda;
+            --text: #ccd6f6;
+            --text-secondary: #8892b0;
+            --neon-blue: #00f7ff;
+            --neon-pink: #ff00aa;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--primary);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--primary);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-logo {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(0, 247, 255, 0.3);
+            animation: pulse 2s infinite;
+        }
+        
+        .loading-bar {
+            width: 300px;
+            height: 4px;
+            background-color: var(--secondary);
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .loading-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink));
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        header {
+            background-color: var(--secondary);
+            padding: 1rem 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 100;
+        }
+        
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, var(--neon-blue), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo-icon {
+            margin-right: 10px;
+            font-size: 2rem;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        .nav-link {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+            position: relative;
+        }
+        
+        .nav-link:hover {
+            color: var(--accent);
+        }
+        
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--accent);
+            transition: width 0.3s ease;
+        }
+        
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        
+        .auth-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1.2rem;
+            border-radius: 5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            outline: none;
+        }
+        
+        .btn-primary {
+            background-color: var(--accent);
+            color: var(--primary);
+        }
+        
+        .btn-primary:hover {
+            background-color: transparent;
+            color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent);
+        }
+        
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent);
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--accent);
+            color: var(--primary);
+        }
+        
+        .main {
+            padding: 3rem 0;
+            min-height: calc(100vh - 120px);
+        }
+        
+        .search-section {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+        
+        .search-title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, var(--neon-blue), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .search-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+        
+        .search-box {
+            max-width: 700px;
+            margin: 0 auto;
+            position: relative;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            border-radius: 50px;
+            border: none;
+            background-color: var(--secondary);
+            color: var(--text);
+            font-size: 1rem;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 5px 20px rgba(100, 255, 218, 0.2);
+        }
+        
+        .search-btn {
+            position: absolute;
+            right: 5px;
+            top: 5px;
+            padding: 0.7rem 1.5rem;
+            border-radius: 50px;
+            background: linear-gradient(90deg, var(--neon-blue), var(--accent));
+            color: var(--primary);
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(100, 255, 218, 0.4);
+        }
+        
+        .login-required {
+            text-align: center;
+            margin-top: 2rem;
+            padding: 2rem;
+            background-color: var(--secondary);
+            border-radius: 10px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .login-required-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+        
+        .login-required-text {
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .results-section {
+            display: none;
+            margin-top: 2rem;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--secondary);
+        }
+        
+        .results-title {
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+        
+        .results-count {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .result-card {
+            background-color: var(--secondary);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-left: 3px solid var(--accent);
+        }
+        
+        .result-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .result-title {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+        
+        .result-leak-info {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(100, 255, 218, 0.2);
+        }
+        
+        .result-data {
+            margin-top: 1rem;
+        }
+        
+        .result-field {
+            margin-bottom: 0.8rem;
+            line-height: 1.5;
+        }
+        
+        .result-field strong {
+            color: var(--accent);
+            display: inline-block;
+            min-width: 120px;
+        }
+        
+        .result-divider {
+            height: 1px;
+            background: rgba(100, 255, 218, 0.1);
+            margin: 1rem 0;
+        }
+        
+        .error-card {
+            border-left-color: var(--neon-pink);
+        }
+        
+        .error-card h3 {
+            color: var(--neon-pink);
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .page-btn {
+            padding: 0.5rem 1rem;
+            background-color: var(--secondary);
+            color: var(--text);
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .page-btn.active {
+            background-color: var(--accent);
+            color: var(--primary);
+            font-weight: bold;
+        }
+        
+        .page-btn:hover:not(.active) {
+            background-color: rgba(100, 255, 218, 0.1);
+        }
+        
+        .admin-panel {
+            display: none;
+            background-color: var(--secondary);
+            padding: 2rem;
+            border-radius: 10px;
+            margin-top: 2rem;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .admin-title {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+            text-align: center;
+        }
+        
+        .admin-section {
+            margin-bottom: 2rem;
+        }
+        
+        .section-title {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+            border-bottom: 1px solid rgba(100, 255, 218, 0.3);
+            padding-bottom: 0.5rem;
+        }
+        
+        .admin-form {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .form-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .form-input {
+            padding: 0.8rem 1rem;
+            background-color: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(100, 255, 218, 0.1);
+            border-radius: 5px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(100, 255, 218, 0.2);
+        }
+        
+        .users-list {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .user-card {
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 3px solid var(--neon-blue);
+        }
+        
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        
+        .user-name {
+            font-weight: bold;
+        }
+        
+        .user-email {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+        
+        .user-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .action-btn {
+            padding: 0.3rem 0.6rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        
+        .edit-btn {
+            background-color: rgba(0, 247, 255, 0.1);
+            color: var(--neon-blue);
+            border: 1px solid var(--neon-blue);
+        }
+        
+        .edit-btn:hover {
+            background-color: var(--neon-blue);
+            color: var(--primary);
+        }
+        
+        .delete-btn {
+            background-color: rgba(255, 0, 170, 0.1);
+            color: var(--neon-pink);
+            border: 1px solid var(--neon-pink);
+        }
+        
+        .delete-btn:hover {
+            background-color: var(--neon-pink);
+            color: white;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-content {
+            background-color: var(--secondary);
+            padding: 2rem;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-top: 3px solid var(--accent);
+            animation: slideDown 0.4s ease;
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-50px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .close-modal:hover {
+            color: var(--accent);
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            color: var(--accent);
+        }
+        
+        .neon-text {
+            text-shadow: 0 0 5px var(--neon-blue), 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue);
+            animation: neonGlow 1.5s infinite alternate;
+        }
+        
+        @keyframes neonGlow {
+            from {
+                text-shadow: 0 0 5px var(--neon-blue), 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue);
+            }
+            to {
+                text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue), 0 0 30px var(--neon-blue), 0 0 40px var(--neon-blue);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header-container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .search-title {
+                font-size: 2rem;
+            }
+            
+            .result-card {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading screen -->
+    <div class="loading-screen">
+        <div class="loading-logo">Alga-Search</div>
+        <div class="loading-bar">
+            <div class="loading-progress" id="loadingProgress"></div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header>
+        <div class="container header-container">
+            <a href="#" class="logo">
+                <span class="logo-icon">🔍</span>
+                <span class="neon-text">Alga-Search</span>
+            </a>
+            <nav class="nav-links">
+                <a href="#" class="nav-link" id="homeLink">Главная</a>
+                <a href="#" class="nav-link" id="searchLink">Поиск</a>
+                <a href="#" class="nav-link" id="adminLink" style="display: none;">Админ-панель</a>
+            </nav>
+            <div class="auth-buttons">
+                <button class="btn btn-secondary" id="loginBtn">Вход</button>
+                <button class="btn btn-primary" id="logoutBtn" style="display: none;">Выйти</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main content -->
+    <main class="main">
+        <div class="container">
+            <!-- Search section -->
+            <section class="search-section" id="searchSection">
+                <h1 class="search-title">OSINT Поиск</h1>
+                <p class="search-subtitle">Введите запрос для поиска по базам данных</p>
+                <div class="search-box" id="searchBox">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Email, телефон, имя...">
+                    <button class="search-btn" id="searchBtn">Поиск</button>
+                </div>
+                <div class="login-required" id="loginRequired" style="display: none;">
+                    <h2 class="login-required-title">Требуется авторизация</h2>
+                    <p class="login-required-text">Для использования поиска необходимо войти в систему</p>
+                    <button class="btn btn-primary" id="loginRequiredBtn">Войти</button>
+                </div>
+            </section>
+
+            <!-- Results section -->
+            <section class="results-section" id="resultsSection">
+                <div class="results-header">
+                    <h2 class="results-title">Результаты поиска</h2>
+                    <div class="results-count" id="resultsCount">Найдено: 0</div>
+                </div>
+                <div class="results-container" id="resultsContainer"></div>
+                <div class="pagination" id="pagination"></div>
+            </section>
+
+            <!-- Admin panel -->
+            <section class="admin-panel" id="adminPanel">
+                <h2 class="admin-title">Административная панель</h2>
+                
+                <div class="admin-section">
+                    <h3 class="section-title">Добавить пользователя</h3>
+                    <form class="admin-form" id="addUserForm">
+                        <div class="form-group">
+                            <label for="newUsername" class="form-label">Логин</label>
+                            <input type="text" id="newUsername" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword" class="form-label">Пароль</label>
+                            <input type="password" id="newPassword" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newEmail" class="form-label">Email (необязательно)</label>
+                            <input type="email" id="newEmail" class="form-input">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Добавить пользователя</button>
+                    </form>
+                </div>
+                
+                <div class="admin-section">
+                    <h3 class="section-title">Список пользователей</h3>
+                    <div class="users-list" id="usersList">
+                        <!-- Users will be added here dynamically -->
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Login modal -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <span class="close-modal" id="closeModal">&times;</span>
+            <h2 class="modal-title">Вход в систему</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username" class="form-label">Логин</label>
+                    <input type="text" id="username" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="password" class="form-label">Пароль</label>
+                    <input type="password" id="password" class="form-input" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Войти</button>
+            </form>
+            <div id="loginError" style="color: var(--neon-pink); margin-top: 1rem; text-align: center; display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Конфигурация API
+        const API_URL = "https://leakosintapi.com/";
+        const API_TOKEN = "5138446822:StyPq6tg"; // Замените на реальный ключ
+        const LANG = "ru";
+        const LIMIT = 300;
+
+        // App variables
+        let currentUser = null;
+        let searchResults = [];
+        let currentPage = 0;
+        const resultsPerPage = 5;
+        
+        // Mock database
+        const users = [
+            { id: 1, username: 'admin', password: ' D#0&e&&OxXyT', email: 'admin@alga-search.ru', isAdmin: true },
+            { id: 2, username: 'user1', password: 'user123', email: 'user1@example.com', isAdmin: false }
+        ];
+        
+        // DOM elements
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const loginModal = document.getElementById('loginModal');
+        const closeModal = document.getElementById('closeModal');
+        const loginForm = document.getElementById('loginForm');
+        const loginError = document.getElementById('loginError');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchInput = document.getElementById('searchInput');
+        const searchBox = document.getElementById('searchBox');
+        const loginRequired = document.getElementById('loginRequired');
+        const loginRequiredBtn = document.getElementById('loginRequiredBtn');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const resultsCount = document.getElementById('resultsCount');
+        const pagination = document.getElementById('pagination');
+        const adminLink = document.getElementById('adminLink');
+        const adminPanel = document.getElementById('adminPanel');
+        const searchSection = document.getElementById('searchSection');
+        const homeLink = document.getElementById('homeLink');
+        const searchLink = document.getElementById('searchLink');
+        const addUserForm = document.getElementById('addUserForm');
+        const usersList = document.getElementById('usersList');
+        
+        // Initialize the app
+        function initApp() {
+            // Check if user is logged in from localStorage
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                updateUI();
+            } else {
+                showLoginRequired();
+            }
+            
+            // Event listeners
+            loginBtn.addEventListener('click', openLoginModal);
+            logoutBtn.addEventListener('click', logout);
+            closeModal.addEventListener('click', closeLoginModal);
+            loginForm.addEventListener('submit', handleLogin);
+            searchBtn.addEventListener('click', performSearch);
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') performSearch();
+            });
+            homeLink.addEventListener('click', showHome);
+            searchLink.addEventListener('click', showSearch);
+            adminLink.addEventListener('click', showAdminPanel);
+            addUserForm.addEventListener('submit', addNewUser);
+            loginRequiredBtn.addEventListener('click', openLoginModal);
+            
+            showHome();
+        }
+        
+        function showLoginRequired() {
+            searchBox.style.display = 'none';
+            loginRequired.style.display = 'block';
+        }
+        
+        function hideLoginRequired() {
+            searchBox.style.display = 'block';
+            loginRequired.style.display = 'none';
+        }
+        
+        function updateUI() {
+            if (currentUser) {
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'block';
+                hideLoginRequired();
+                
+                if (currentUser.isAdmin) {
+                    adminLink.style.display = 'block';
+                } else {
+                    adminLink.style.display = 'none';
+                    if (adminPanel.style.display === 'block') {
+                        showSearch();
+                    }
+                }
+            } else {
+                loginBtn.style.display = 'block';
+                logoutBtn.style.display = 'none';
+                adminLink.style.display = 'none';
+                showLoginRequired();
+                
+                if (adminPanel.style.display === 'block') {
+                    showSearch();
+                }
+            }
+        }
+        
+        function openLoginModal() {
+            loginModal.style.display = 'flex';
+            loginError.style.display = 'none';
+        }
+        
+        function closeLoginModal() {
+            loginModal.style.display = 'none';
+        }
+        
+        function handleLogin(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                updateUI();
+                closeLoginModal();
+                showSearch();
+            } else {
+                loginError.textContent = 'Неверный логин или пароль';
+                loginError.style.display = 'block';
+            }
+        }
+        
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            updateUI();
+            showSearch();
+        }
+        
+        function showHome() {
+            searchSection.style.display = 'block';
+            resultsSection.style.display = 'none';
+            adminPanel.style.display = 'none';
+        }
+        
+        function showSearch() {
+            searchSection.style.display = 'block';
+            resultsSection.style.display = 'none';
+            adminPanel.style.display = 'none';
+            searchInput.focus();
+        }
+        
+        function showAdminPanel() {
+            if (currentUser && currentUser.isAdmin) {
+                searchSection.style.display = 'none';
+                resultsSection.style.display = 'none';
+                adminPanel.style.display = 'block';
+                renderUsersList();
+            }
+        }
+        
+        async function performSearch() {
+            if (!currentUser) {
+                showLoginRequired();
+                openLoginModal();
+                return;
+            }
+            
+            const query = searchInput.value.trim();
+            
+            if (!query) {
+                alert('Пожалуйста, введите запрос для поиска');
+                return;
+            }
+            
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Поиск...';
+            
+            try {
+                // 1. Формируем запрос к API
+                const requestData = {
+                    token: API_TOKEN,
+                    request: query.split("\n")[0], // Берем первую строку, как в оригинальном Python-коде
+                    limit: LIMIT,
+                    lang: LANG
+                };
+                
+                // 2. Отправляем запрос
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Ошибка HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // 3. Обработка ошибок API
+                if (data["Error code"]) {
+                    throw new Error(data["Error code"]);
+                }
+                
+                // 4. Форматируем результаты
+                searchResults = [];
+                for (const dbName in data["List"]) {
+                    const db = data["List"][dbName];
+                    let resultHTML = `<div class="result-card"><h3 class="result-title">${dbName}</h3>`;
+                    resultHTML += `<p class="result-leak-info">${db["InfoLeak"]}</p>`;
+                    
+                    if (db["Data"] && db["Data"].length > 0) {
+                        resultHTML += `<div class="result-data">`;
+                        db["Data"].forEach(entry => {
+                            for (const key in entry) {
+                                resultHTML += `<div class="result-field"><strong>${key}</strong>: ${entry[key]}</div>`;
+                            }
+                            resultHTML += `<div class="result-divider"></div>`;
+                        });
+                        resultHTML += `</div>`;
+                    }
+                    
+                    resultHTML += `</div>`;
+                    searchResults.push(resultHTML);
+                }
+                
+                if (searchResults.length === 0) {
+                    searchResults.push('<div class="result-card">По вашему запросу ничего не найдено.</div>');
+                }
+                
+                // 5. Показываем результаты
+                currentPage = 0;
+                displayResults();
+                resultsSection.style.display = 'block';
+                
+            } catch (error) {
+                console.error("Ошибка API:", error);
+                searchResults = [`<div class="result-card error-card">
+                    <h3>Ошибка при выполнении поиска</h3>
+                    <p>${error.message}</p>
+                    <p>Попробуйте изменить запрос или повторить позже</p>
+                </div>`];
+                displayResults();
+                resultsSection.style.display = 'block';
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Поиск';
+            }
+        }
+
+        function displayResults() {
+            resultsContainer.innerHTML = '';
+            resultsCount.textContent = `Найдено: ${searchResults.length}`;
+            
+            const startIdx = currentPage * resultsPerPage;
+            const endIdx = startIdx + resultsPerPage;
+            const pageResults = searchResults.slice(startIdx, endIdx);
+            
+            pageResults.forEach(result => {
+                resultsContainer.innerHTML += result;
+            });
+            
+            renderPagination();
+        }
+        
+        function renderPagination() {
+            pagination.innerHTML = '';
+            const pageCount = Math.ceil(searchResults.length / resultsPerPage);
+            
+            if (pageCount <= 1) return;
+            
+            if (currentPage > 0) {
+                const prevBtn = document.createElement('button');
+                prevBtn.className = 'page-btn';
+                prevBtn.textContent = '← Назад';
+                prevBtn.addEventListener('click', () => {
+                    currentPage--;
+                    displayResults();
+                });
+                pagination.appendChild(prevBtn);
+            }
+            
+            for (let i = 0; i < pageCount; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
+                pageBtn.textContent = i + 1;
+                pageBtn.addEventListener('click', () => {
+                    currentPage = i;
+                    displayResults();
+                });
+                pagination.appendChild(pageBtn);
+            }
+            
+            if (currentPage < pageCount - 1) {
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'page-btn';
+                nextBtn.textContent = 'Вперед →';
+                nextBtn.addEventListener('click', () => {
+                    currentPage++;
+                    displayResults();
+                });
+                pagination.appendChild(nextBtn);
+            }
+        }
+        
+        function renderUsersList() {
+            usersList.innerHTML = '';
+            
+            users.forEach(user => {
+                if (user.username === currentUser.username) return;
+                
+                const userCard = document.createElement('div');
+                userCard.className = 'user-card';
+                
+                userCard.innerHTML = `
+                    <div class="user-info">
+                        <div class="user-name">${user.username}</div>
+                        <div class="user-email">${user.email || 'Нет email'}</div>
+                    </div>
+                    <div class="user-actions">
+                        <button class="action-btn edit-btn" data-id="${user.id}">Изменить</button>
+                        <button class="action-btn delete-btn" data-id="${user.id}">Удалить</button>
+                    </div>
+                `;
+                
+                usersList.appendChild(userCard);
+            });
+            
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const userId = parseInt(e.target.getAttribute('data-id'));
+                    editUser(userId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const userId = parseInt(e.target.getAttribute('data-id'));
+                    deleteUser(userId);
+                });
+            });
+        }
+        
+        function addNewUser(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value.trim();
+            const email = document.getElementById('newEmail').value.trim();
+            
+            if (!username || !password) {
+                alert('Логин и пароль обязательны');
+                return;
+            }
+            
+            if (users.some(u => u.username === username)) {
+                alert('Пользователь с таким логином уже существует');
+                return;
+            }
+            
+            const newUser = {
+                id: users.length + 1,
+                username,
+                password,
+                email: email || null,
+                isAdmin: false
+            };
+            
+            users.push(newUser);
+            renderUsersList();
+            addUserForm.reset();
+            alert('Пользователь успешно добавлен');
+        }
+        
+        function editUser(userId) {
+            alert(`Редактирование пользователя с ID ${userId} (функционал в разработке)`);
+        }
+        
+        function deleteUser(userId) {
+            if (confirm('Вы уверены, что хотите удалить этого пользователя?')) {
+                const index = users.findIndex(u => u.id === userId);
+                if (index !== -1) {
+                    users.splice(index, 1);
+                    renderUsersList();
+                    alert('Пользователь удален');
+                }
+            }
+        }
+
+        // Simulate loading progress
+        let progress = 0;
+        const loadingInterval = setInterval(() => {
+            progress += Math.random() * 10;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(loadingInterval);
+                setTimeout(() => {
+                    document.querySelector('.loading-screen').classList.add('hidden');
+                    initApp();
+                }, 500);
+            }
+            document.getElementById('loadingProgress').style.width = `${progress}%`;
+        }, 100);
+    </script>
+</body>
+</html>
